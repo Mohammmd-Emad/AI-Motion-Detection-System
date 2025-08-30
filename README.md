@@ -49,19 +49,10 @@ The system detects activities such as **Sitting, Standing, Walking, and Lying Do
 ---
 
 ## 🖥️ Demo & Presentation  
-- [1-Minute Demo Video (Google Drive)](YOUR_DEMO_LINK_HERE)  
-- [3-Minute Presentation Video (Google Drive)](YOUR_PRESENTATION_LINK_HERE)  
 
----
-├── data/                  # Raw collected data
-├── feature_extraction.py  # Feature extraction script
-├── features/              # Extracted features
-├── models/                # Trained ML models (.pkl files)
+- [1-Minute Demo Video (Google Drive)](https://drive.google.com/file/d/1OmPhDbF-XuWZr2VrcJY3FNYxGXAWS9i2/view?usp=sharing)  
+- [3-Minute Presentation Video (Google Drive)](https://drive.google.com/file/d/14msy-jTw6bzSCNi5oTUUSSW1JdxLcNWZ/view?usp=sharing)  
 
-├── templates/             # HTML frontend
-├── app.py                 # Flask backend
-
-├── README.md              # Project documentation
 
 ### 📊 Results
 
