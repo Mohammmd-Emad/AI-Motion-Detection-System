@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>3-Bit Core | Live IMU Prediction</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --primary-color: #4a89dc;
+            --secondary-color: #5d9cec;
+            --dark-color: #2c3e50;
+            --light-color: #f5f7fa;
+            --success-color: #48cfad;
+            --warning-color: #f39c12;
+            --danger-color: #e74c3c;
+            --bg-color: #1e272e;
+            --card-color: #2d3436;
+            --text-muted: #95a5a6;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-color);
+            color: var(--light-color);
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .team-name {
+            font-size: 2.5rem;
+            font-weight: bold;
+            background: linear-gradient(to right, var(--primary-color), var(--secondary-color));
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            margin-bottom: 0.5rem;
+        }
+
+        h1 {
+            font-size: 1.8rem;
+            font-weight: 400;
+            color: var(--text-muted);
+            margin: 0;
+        }
+
+        .prediction-card, .chart-card, .goal-section, .timeline-section {
+            background: var(--card-color);
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .prediction-label {
+            font-size: 1.2rem;
+            color: #bdc3c7;
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+        }
+
+        .prediction-label i {
+            margin-right: 8px;
+        }
+
+        #prediction {
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: var(--success-color);
+            margin: 0.5rem 0;
+            min-height: 3.5rem;
+            text-transform: capitalize;
+        }
+
+        #time {
+            font-size: 1rem;
+            color: var(--text-muted);
+            font-family: monospace;
+        }
+
+        .status-indicator {
+            width: 15px;
+            height: 15px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 8px;
+            background-color: var(--danger-color);
+            animation: pulse 2s infinite;
+        }
+
+        .status-indicator.active {
+            background-color: var(--success-color);
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        .connection-status {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: #bdc3c7;
+        }
+
+        .chart-container {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-bottom: 2.5rem;
+        }
+
+        .chart-column {
+            flex: 1 1 48%;
+            min-width: 300px;
+        }
+
+        .chart-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .chart-box {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 8px;
+            padding: 1rem;
+        }
+
+        .chart-title {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            margin-bottom: 0.5rem;
+            text-align: center;
+        }
+
+        .goal-highlight {
+            color: var(--success-color);
+            font-weight: bold;
+        }
+
+        .progress-bar {
+            height: 10px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 5px;
+            margin: 10px 0;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(to right, var(--primary-color), var(--secondary-color));
+            border-radius: 5px;
+            transition: width 0.5s ease;
+        }
+
+        footer {
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            margin-top: 2rem;
+            padding-top: 1rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .timeline-list {
+            list-style: none;
+            padding-left: 0;
+            font-family: monospace;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .timeline-list li {
+            padding: 8px 0;
+            border-bottom: 1px solid #444;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .timeline-activity {
+            font-weight: bold;
+            text-transform: capitalize;
+        }
+
+        .activity-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            margin-left: 8px;
+        }
+
+        .walking { background-color: rgba(72, 207, 173, 0.2); color: #48cfad; }
+        .sitting { background-color: rgba(243, 156, 18, 0.2); color: #f39c12; }
+        .standing { background-color: rgba(231, 76, 60, 0.2); color: #e74c3c; }
+        .lying { background-color: rgba(93, 156, 236, 0.2); color: #5d9cec; }
+
+        @media (max-width: 768px) {
+            .chart-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .chart-column {
+                flex: 1 1 100%;
+            }
+            
+            .container {
+                padding: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <header>
+        <div class="team-name">3-Bit Core</div>
+        <h1>Live IMU Activity Prediction (via Phyphox)</h1>
+    </header>
+
+    <div class="connection-status">
+        <div class="status-indicator active"></div>
+        <span>Connected to Prediction Server</span>
+    </div>
+
+    <div class="prediction-card">
+        <div class="prediction-label">
+            <i>📊</i> Current Activity Prediction
+        </div>
+        <div id="prediction">Waiting for data...</div>
+        <div id="time">Last update: --:--:--</div>
+    </div>
+
+    <div class="chart-container">
+        <div class="chart-column chart-card">
+            <div class="prediction-label">
+                <i>📅</i> Today's Activity Summary
+            </div>
+            <div class="chart-grid">
+                <div class="chart-box">
+                    <div class="chart-title">Time Distribution</div>
+                    <canvas id="dailyChart"></canvas>
+                </div>
+                <div class="chart-box">
+                    <div class="chart-title">Activity Percentage</div>
+                    <canvas id="dailyPie"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="chart-column chart-card">
+            <div class="prediction-label">
+                <i>⏰</i> Last Hour Activity Summary
+            </div>
+            <div class="chart-grid">
+                <div class="chart-box">
+                    <div class="chart-title">Time Distribution</div>
+                    <canvas id="lastHourChart"></canvas>
+                </div>
+                <div class="chart-box">
+                    <div class="chart-title">Activity Percentage</div>
+                    <canvas id="lastHourPie"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="goal-section">
+        <div class="prediction-label">
+            <i>🎯</i> Daily Goal
+        </div>
+        <div>Walk for <span class="goal-highlight">2 hours</span> (120 minutes)</div>
+        <div class="progress-bar">
+            <div class="progress-fill" id="goal-progress" style="width: 0%"></div>
+        </div>
+        <div id="goal-status">Loading...</div>
+    </div>
+
+    <div class="timeline-section">
+        <div class="prediction-label">
+            <i>📝</i> Recent Activity Timeline
+        </div>
+        <ul class="timeline-list" id="timeline-list">
+            <li>Loading timeline...</li>
+        </ul>
+    </div>
+
+    <footer>
+        &copy; <span id="current-year"></span> 3-Bit Core | Real-time IMU Classification System
+    </footer>
+</div>
+
+<script>
+    const TARGET_MINUTES = 120;
+    const ACTIVITY_COLORS = {
+        'walking': '#48cfad',
+        'sitting': '#f39c12',
+        'standing': '#e74c3c',
+        'lying': '#5d9cec'
+    };
+
+    function fetchPrediction() {
+        fetch('/get_prediction')
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('prediction').textContent = data.prediction || 'Unknown';
+                document.getElementById('time').textContent = `Last update: ${data.time || new Date().toLocaleTimeString()}`;
+                document.querySelector('.status-indicator').classList.add('active');
+                
+                // Add activity badge class
+                const predictionElement = document.getElementById('prediction');
+                predictionElement.className = '';
+                predictionElement.classList.add(data.prediction.toLowerCase());
+            })
+            .catch(() => {
+                document.querySelector('.status-indicator').classList.remove('active');
+                document.getElementById('time').textContent = `Last update attempt: ${new Date().toLocaleTimeString()}`;
+            });
+    }
+
+    const chartConfigs = (title) => ({
+        type: 'bar',
+        data: { 
+            labels: [], 
+            datasets: [{ 
+                label: 'Minutes', 
+                data: [], 
+                backgroundColor: Object.values(ACTIVITY_COLORS),
+                borderColor: Object.values(ACTIVITY_COLORS).map(color => color + 'DD'),
+                borderWidth: 1
+            }] 
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                title: {
+                    display: true,
+                    text: title,
+                    color: '#ecf0f1'
+                },
+                legend: {
+                    display: false
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    title: { 
+                        display: true, 
+                        text: 'Minutes',
+                        color: '#ecf0f1'
+                    },
+                    ticks: {
+                        color: '#ecf0f1'
+                    },
+                    grid: {
+                        color: 'rgba(255, 255, 255, 0.1)'
+                    }
+                },
+                x: {
+                    ticks: {
+                        color: '#ecf0f1'
+                    },
+                    grid: {
+                        color: 'rgba(255, 255, 255, 0.1)'
+                    }
+                }
+            }
+        }
+    });
+
+    const pieConfig = (title) => ({
+        type: 'doughnut',
+        data: { 
+            labels: [], 
+            datasets: [{ 
+                data: [], 
+                backgroundColor: Object.values(ACTIVITY_COLORS),
+                borderColor: '#2d3436',
+                borderWidth: 2
+            }] 
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                title: {
+                    display: true,
+                    text: title,
+                    color: '#ecf0f1'
+                },
+                legend: { 
+                    position: 'bottom', 
+                    labels: { 
+                        color: '#ecf0f1',
+                        padding: 15
+                    } 
+                }
+            }
+        }
+    });
+
+    const dailyChart = new Chart(document.getElementById('dailyChart'), chartConfigs('Time Spent'));
+    const lastHourChart = new Chart(document.getElementById('lastHourChart'), chartConfigs('Time Spent'));
+    const dailyPie = new Chart(document.getElementById('dailyPie'), pieConfig('Activity Distribution'));
+    const lastHourPie = new Chart(document.getElementById('lastHourPie'), pieConfig('Activity Distribution'));
+
+    function updateChart(url, barChart, pieChart, isDaily = false) {
+        fetch(url)
+            .then(res => res.json())
+            .then(data => {
+                const labels = Object.keys(data);
+                const minutes = Object.values(data);
+                
+                
+                barChart.data.labels = labels;
+                barChart.data.datasets[0].data = minutes;
+                barChart.update();
+                
+                
+                pieChart.data.labels = labels;
+                pieChart.data.datasets[0].data = minutes;
+                pieChart.update();
+                
+                if (isDaily) updateGoalSection(data);
+            });
+    }
+
+    function updateGoalSection(dailyData) {
+        const walkingMinutes = dailyData["walking"] || 0;
+        const progressPercent = Math.min(100, (walkingMinutes / TARGET_MINUTES) * 100);
+        
+        document.getElementById('goal-progress').style.width = `${progressPercent}%`;
+        
+        let text = '';
+        if (walkingMinutes >= TARGET_MINUTES) {
+            text = `✅ Goal achieved! You walked for <span class="goal-highlight">${walkingMinutes.toFixed(1)} minutes</span> today.`;
+        } else {
+            const remaining = TARGET_MINUTES - walkingMinutes;
+            text = `⏳ You walked <span class="goal-highlight">${walkingMinutes.toFixed(1)} minutes</span>. Keep going! <strong>${remaining.toFixed(1)} minutes</strong> left.`;
+        }
+        
+        document.getElementById('goal-status').innerHTML = text;
+    }
+
+    function updateTimeline() {
+        fetch('/get_daily_timeline')
+            .then(res => res.json())
+            .then(data => {
+                const list = document.getElementById('timeline-list');
+                list.innerHTML = '';
+                
+                if (data.length === 0) {
+                    list.innerHTML = '<li>No activities recorded today</li>';
+                    return;
+                }
+                
+                data.forEach(entry => {
+                    const li = document.createElement('li');
+                    
+                    const timeSpan = document.createElement('span');
+                    timeSpan.textContent = entry.time;
+                    
+                    const activitySpan = document.createElement('span');
+                    activitySpan.textContent = entry.activity;
+                    activitySpan.classList.add('timeline-activity');
+                    
+                    const badgeSpan = document.createElement('span');
+                    badgeSpan.textContent = entry.activity;
+                    badgeSpan.classList.add('activity-badge', entry.activity.toLowerCase());
+                    
+                    li.appendChild(timeSpan);
+                    li.appendChild(activitySpan);
+                    list.appendChild(li);
+                });
+            });
+    }
+
+    function refreshAll() {
+        fetchPrediction();
+        updateChart('/get_last_hour_report', lastHourChart, lastHourPie);
+        updateChart('/get_daily_report', dailyChart, dailyPie, true);
+        updateTimeline();
+    }
+
+    // Initial load
+    refreshAll();
+    document.getElementById('current-year').textContent = new Date().getFullYear();
+    
+    // Set up periodic refresh
+    setInterval(refreshAll, 2000);
+</script>
+</body>
+</html>
